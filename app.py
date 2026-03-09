@@ -38,6 +38,12 @@ st.markdown("""
         .rank-table td {
             padding: 8px 12px;
         }
+        .kpi-section {
+            background-color: #1a1a2e;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -55,7 +61,7 @@ with st.sidebar:
         index=0
     )
     st.markdown("---")
-    
+
 # ─── DATASETS ทั้งหมด ─────────────────────────────────────────────────────
 months = ["Jul", "Aug", "Sep", "Oct"]
 
@@ -72,7 +78,7 @@ df_users = pd.DataFrame({
 df_news_ic = pd.DataFrame({"เดือน": months, "News Posted": [5,5,2,6], "Viewed": [455,424,66,210]})
 df_news_vh = pd.DataFrame({"เดือน": months, "News Posted": [4,10,4,5], "Viewed": [128,388,151,195]})
 
-# ─── Top 5 News (สมมติข่าวยอดนิยมสะสม Jul–Oct) ─────────────────────────
+# ─── Top 5 News ────────────────────────────────────────────────────────────
 df_top_news_ic = pd.DataFrame({
     "อันดับ": [1, 2, 3, 4, 5],
     "หัวข้อข่าว": [
@@ -97,10 +103,28 @@ df_top_news_vh = pd.DataFrame({
     "ยอดเข้าชม": [175, 142, 121, 108, 89]
 })
 
-df_repair_ic = pd.DataFrame({"เดือน": months, "Repair Request": [16,53,15,35], "Pending": [0,0,0,4], "ปิดงาน": [16,53,15,26]})
-df_repair_vh = pd.DataFrame({"เดือน": months, "Repair Request": [207,231,242,283], "Pending": [3,2,51,95], "ปิดงาน": [95,138,141,133]})
+# ─── Repair Request (อัปเดตตามรูปที่แนบ) ─────────────────────────────────
+df_repair_ic = pd.DataFrame({
+    "เดือน": months,
+    "Repair Request": [16, 53, 15, 35],
+    "รอดำเนินการ": [0, 0, 0, 4],
+    "กำลังดำเนินการ": [0, 0, 0, 0],
+    "นัดหมาย": [0, 0, 0, 2],
+    "เสร็จสิ้น": [0, 0, 0, 3],
+    "ปิดงาน": [16, 53, 15, 26]
+})
 
-# ─── Top 5 Repair (ประเภทงานแจ้งซ่อมสะสม Jul–Oct) ─────────────────────
+df_repair_vh = pd.DataFrame({
+    "เดือน": months,
+    "Repair Request": [207, 231, 242, 283],
+    "รอดำเนินการ": [3, 2, 51, 95],
+    "กำลังดำเนินการ": [0, 0, 3, 9],
+    "นัดหมาย": [0, 0, 0, 0],
+    "เสร็จสิ้น": [109, 91, 47, 45],
+    "ปิดงาน": [95, 138, 141, 133]
+})
+
+# ─── Top 5 Repair ──────────────────────────────────────────────────────────
 df_top_repair_ic = pd.DataFrame({
     "อันดับ": [1, 2, 3, 4, 5],
     "ประเภทงานซ่อม": [
@@ -150,7 +174,6 @@ df_pay_vh = pd.DataFrame({
 
 pay_ic_total = df_pay_ic.sum(numeric_only=True)
 pay_vh_total = df_pay_vh.sum(numeric_only=True)
-
 payment_categories = ["Pending", "Complete", "QR", "Cash", "Credit"]
 
 df_parcel_ic = pd.DataFrame({
@@ -191,7 +214,6 @@ df_service_vh = pd.DataFrame({
     "บริการอาบแดด": [0, 4, 6, 13]
 })
 
-# ─── Top 5 Home Service (สะสม Jul–Oct) ────────────────────────────────────
 service_ic_total = df_service_ic.drop(columns="เดือน").sum().reset_index()
 service_ic_total.columns = ["บริการ", "จำนวนครั้งรวม"]
 service_ic_total = service_ic_total[service_ic_total["จำนวนครั้งรวม"] > 0].sort_values("จำนวนครั้งรวม", ascending=False).head(5).reset_index(drop=True)
@@ -213,45 +235,56 @@ def has_data(df, col=None):
         return df[col].sum() > 0 if col in df.columns else False
     return df.iloc[:, 1:].sum().sum() > 0 if len(df.columns) > 1 else False
 
-# ─── KPI ผู้ใช้งาน (ตามรูปเป๊ะ) ─────────────────────────────────────────────
+# ─── ผู้ใช้งาน ─────────────────────────────────────────────────────────────
 st.subheader("👥 สรุปผู้ใช้งาน")
 
 if selected_project == "ทั้งหมด":
     total_users = 566
     inactive_users = 83
-    cols = st.columns([3, 3, 1])
-    with cols[0]:
+    c1, c2, c3 = st.columns(3)
+    with c1:
         st.metric("จำนวนผู้ใช้งานทั้งหมด", f"{total_users:,} คน")
-    with cols[1]:
-        st.metric(
-            "จำนวนผู้ใช้งานที่ไม่ได้เข้าใช้งาน (ไม่ Login ภายใน 3 เดือน)",
-            f"{inactive_users:,} คน",
-            
-            delta_color="normal"
-        )
-    with cols[2]:
+    with c2:
+        st.metric("ไม่ได้ Login ภายใน 3 เดือน", f"{inactive_users:,} คน")
+    with c3:
         st.metric("จำนวนโครงการ", "3")
+
+    st.markdown("##### รายละเอียดแยกตามโครงการ")
+    col_ic, col_vh = st.columns(2)
+    user_fields = ["All Users", "Units", "Owner", "co-Owner", "Residents", "Tenant"]
+
+    with col_ic:
+        st.markdown("**ICRHH**")
+        row_ic = df_users[df_users["โครงการ"] == "ICRHH"].iloc[0]
+        st.dataframe(
+            pd.DataFrame({"รายการ": user_fields, "จำนวน": [row_ic[f] for f in user_fields]}).set_index("รายการ"),
+            use_container_width=True
+        )
+
+    with col_vh:
+        st.markdown("**VEHHA**")
+        row_vh = df_users[df_users["โครงการ"] == "VEHHA"].iloc[0]
+        st.dataframe(
+            pd.DataFrame({"รายการ": user_fields, "จำนวน": [row_vh[f] for f in user_fields]}).set_index("รายการ"),
+            use_container_width=True
+        )
+
+elif selected_project == "Ari":
+    st.markdown('<div class="empty-notice">โครงการ Ari มีผู้ใช้งานเพียง 2 ราย (Owner) ณ ขณะนี้</div>', unsafe_allow_html=True)
+    df_ari = df_users[df_users["โครงการ"] == "Ari"][["โครงการ","All Users","Units","Owner","co-Owner","Residents","Tenant"]].set_index("โครงการ")
+    st.dataframe(df_ari, use_container_width=True)
+
 else:
     row = df_users[df_users["โครงการ"] == selected_project].iloc[0]
-    total = row["All Users"]
-    inactive = 0
-    cols = st.columns(3)
-    with cols[0]:
-        st.metric("จำนวนผู้ใช้งานทั้งหมด", f"{total:,} คน")
-    with cols[1]:
-        st.metric("ไม่ได้เข้าใช้งาน (3 เดือน)", f"{inactive:,} คน")
-    with cols[2]:
-        st.metric("โครงการ", selected_project)
-
-    if selected_project == "Ari":
-        st.markdown(
-            '<div class="empty-notice">โครงการ Ari มีผู้ใช้งานเพียง 2 ราย (Owner) ณ ขณะนี้</div>',
-            unsafe_allow_html=True
-        )
+    user_fields = ["All Users", "Units", "Owner", "co-Owner", "Residents", "Tenant"]
+    st.dataframe(
+        pd.DataFrame({"รายการ": user_fields, "จำนวน": [row[f] for f in user_fields]}).set_index("รายการ"),
+        use_container_width=True
+    )
 
 st.markdown("---")
 
-# ─── News ────────────────────────────────────────────────────────────────
+# ─── News ───────────────────────────────────────────────────────────────────
 if has_data(df_news_ic, "Viewed") or has_data(df_news_vh, "Viewed"):
     st.subheader("📰 ข่าวสารและยอดเข้าชม")
     cols = st.columns(2 if selected_project == "ทั้งหมด" else 1)
@@ -271,89 +304,125 @@ if has_data(df_news_ic, "Viewed") or has_data(df_news_vh, "Viewed"):
                          x="เดือน", y="จำนวน", color="ประเภท", barmode="group", title="VEHHA")
             st.plotly_chart(fig, use_container_width=True)
 
-    # ─── 5 อันดับข่าวสารยอดนิยม ───────────────────────────────────────────
+    # ─── 5 อันดับข่าวสาร (ตาราง) ──────────────────────────────────────────
     st.markdown("#### 🏆 5 อันดับข่าวสารยอดนิยม (สะสม Jul–Oct)")
     cols_rank = st.columns(2 if selected_project == "ทั้งหมด" else 1)
 
     if selected_project in ["ทั้งหมด", "ICRHH"]:
         with cols_rank[0]:
             st.markdown("**ICRHH**")
-            fig_ic_news = px.bar(
-                df_top_news_ic, x="ยอดเข้าชม", y="หัวข้อข่าว",
-                orientation="h", text="ยอดเข้าชม",
-                color="ยอดเข้าชม", color_continuous_scale="Blues"
+            st.dataframe(
+                df_top_news_ic.set_index("อันดับ"),
+                use_container_width=True
             )
-            fig_ic_news.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False, coloraxis_showscale=False)
-            fig_ic_news.update_traces(textposition="outside")
-            st.plotly_chart(fig_ic_news, use_container_width=True)
 
     if selected_project in ["ทั้งหมด", "VEHHA"]:
         target = cols_rank[1] if selected_project == "ทั้งหมด" else cols_rank[0]
         with target:
             st.markdown("**VEHHA**")
-            fig_vh_news = px.bar(
-                df_top_news_vh, x="ยอดเข้าชม", y="หัวข้อข่าว",
-                orientation="h", text="ยอดเข้าชม",
-                color="ยอดเข้าชม", color_continuous_scale="Greens"
+            st.dataframe(
+                df_top_news_vh.set_index("อันดับ"),
+                use_container_width=True
             )
-            fig_vh_news.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False, coloraxis_showscale=False)
-            fig_vh_news.update_traces(textposition="outside")
-            st.plotly_chart(fig_vh_news, use_container_width=True)
 
     st.markdown("---")
 
-# ─── Home Care ────────────────────────────────────────────────────────────
+# ─── Home Care ──────────────────────────────────────────────────────────────
+repair_status_cols = ["รอดำเนินการ", "กำลังดำเนินการ", "นัดหมาย", "เสร็จสิ้น", "ปิดงาน"]
+
 if has_data(df_repair_ic, "Repair Request") or has_data(df_repair_vh, "Repair Request"):
     st.subheader("🔧 การแจ้งซ่อม / Home Care")
+
+    repair_color_map = {
+        "Repair Request":    "#a0c4ff",  # ฟ้าอ่อน
+        "รอดำเนินการ":       "#74b9ff",  # ฟ้า
+        "กำลังดำเนินการ":   "#0984e3",  # น้ำเงิน
+        "นัดหมาย":           "#fd79a8",  # ชมพู
+        "เสร็จสิ้น":         "#e17055",  # ส้ม-แดง
+        "ปิดงาน":            "#00b894",  # เขียว
+    }
+    all_repair_cols = ["Repair Request"] + repair_status_cols
+
     cols = st.columns(2 if selected_project == "ทั้งหมด" else 1)
-    col1 = cols[0]
-    col2 = cols[1] if selected_project == "ทั้งหมด" else None
 
     if selected_project in ["ทั้งหมด", "ICRHH"] and has_data(df_repair_ic, "Repair Request"):
-        with col1:
-            fig = px.bar(df_repair_ic.melt(id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"),
-                         x="เดือน", y="จำนวน", color="สถานะ", barmode="group", title="ICRHH")
+        with cols[0]:
+            df_melt_ic = df_repair_ic[["เดือน"] + all_repair_cols].melt(
+                id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"
+            )
+            # กำหนดลำดับ category
+            df_melt_ic["สถานะ"] = pd.Categorical(df_melt_ic["สถานะ"], categories=all_repair_cols, ordered=True)
+            df_melt_ic = df_melt_ic.sort_values("สถานะ")
+            fig = px.bar(
+                df_melt_ic, x="เดือน", y="จำนวน", color="สถานะ",
+                barmode="group",
+                title="ICRHH - สถานะการแจ้งซ่อมรายเดือน",
+                color_discrete_map=repair_color_map,
+                category_orders={"สถานะ": all_repair_cols}
+            )
+            fig.update_layout(
+                legend_title_text="สถานะ",
+                xaxis_title="เดือน",
+                yaxis_title="จำนวน",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
             st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("**ตารางสรุปรายเดือน ICRHH**")
+            st.dataframe(df_repair_ic.set_index("เดือน"), use_container_width=True)
 
     if selected_project in ["ทั้งหมด", "VEHHA"] and has_data(df_repair_vh, "Repair Request"):
-        target = col2 if selected_project == "ทั้งหมด" else col1
+        target = cols[1] if selected_project == "ทั้งหมด" else cols[0]
         with target:
-            fig = px.bar(df_repair_vh.melt(id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"),
-                         x="เดือน", y="จำนวน", color="สถานะ", barmode="group", title="VEHHA")
+            df_melt_vh = df_repair_vh[["เดือน"] + all_repair_cols].melt(
+                id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"
+            )
+            df_melt_vh["สถานะ"] = pd.Categorical(df_melt_vh["สถานะ"], categories=all_repair_cols, ordered=True)
+            df_melt_vh = df_melt_vh.sort_values("สถานะ")
+            fig = px.bar(
+                df_melt_vh, x="เดือน", y="จำนวน", color="สถานะ",
+                barmode="group",
+                title="VEHHA - สถานะการแจ้งซ่อมรายเดือน",
+                color_discrete_map=repair_color_map,
+                category_orders={"สถานะ": all_repair_cols}
+            )
+            fig.update_layout(
+                legend_title_text="สถานะ",
+                xaxis_title="เดือน",
+                yaxis_title="จำนวน",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
             st.plotly_chart(fig, use_container_width=True)
 
-    # ─── 5 อันดับประเภทงานแจ้งซ่อม ────────────────────────────────────────
+            st.markdown("**ตารางสรุปรายเดือน VEHHA**")
+            st.dataframe(df_repair_vh.set_index("เดือน"), use_container_width=True)
+
+    # ─── 5 อันดับประเภทงานแจ้งซ่อม (ตาราง) ───────────────────────────────
     st.markdown("#### 🏆 5 อันดับประเภทงานแจ้งซ่อมสูงสุด (สะสม Jul–Oct)")
     cols_rank = st.columns(2 if selected_project == "ทั้งหมด" else 1)
 
     if selected_project in ["ทั้งหมด", "ICRHH"]:
         with cols_rank[0]:
             st.markdown("**ICRHH**")
-            fig_ic_rep = px.bar(
-                df_top_repair_ic, x="จำนวนครั้ง", y="ประเภทงานซ่อม",
-                orientation="h", text="จำนวนครั้ง",
-                color="จำนวนครั้ง", color_continuous_scale="Oranges"
+            st.dataframe(
+                df_top_repair_ic.set_index("อันดับ"),
+                use_container_width=True
             )
-            fig_ic_rep.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False, coloraxis_showscale=False)
-            fig_ic_rep.update_traces(textposition="outside")
-            st.plotly_chart(fig_ic_rep, use_container_width=True)
 
     if selected_project in ["ทั้งหมด", "VEHHA"]:
         target = cols_rank[1] if selected_project == "ทั้งหมด" else cols_rank[0]
         with target:
             st.markdown("**VEHHA**")
-            fig_vh_rep = px.bar(
-                df_top_repair_vh, x="จำนวนครั้ง", y="ประเภทงานซ่อม",
-                orientation="h", text="จำนวนครั้ง",
-                color="จำนวนครั้ง", color_continuous_scale="Reds"
+            st.dataframe(
+                df_top_repair_vh.set_index("อันดับ"),
+                use_container_width=True
             )
-            fig_vh_rep.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False, coloraxis_showscale=False)
-            fig_vh_rep.update_traces(textposition="outside")
-            st.plotly_chart(fig_vh_rep, use_container_width=True)
 
     st.markdown("---")
 
-# ─── ความพึงพอใจ ───────────────────────────────────────────────────────────
+# ─── ความพึงพอใจ ────────────────────────────────────────────────────────────
 if has_data(df_sat_ic) or has_data(df_sat_vh):
     st.subheader("😊 การประเมินความพึงพอใจ (5 เต็ม)")
     cols = st.columns(2 if selected_project == "ทั้งหมด" else 1)
@@ -373,7 +442,7 @@ if has_data(df_sat_ic) or has_data(df_sat_vh):
             st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 
-# ─── Payment ───────────────────────────────────────────────────────────────
+# ─── Payment ────────────────────────────────────────────────────────────────
 if pay_ic_total[payment_categories].sum() > 0 or pay_vh_total[payment_categories].sum() > 0:
     st.subheader("💰 สรุปการชำระเงิน (รวม Jul–Oct)")
     cols = st.columns(2 if selected_project == "ทั้งหมด" else 1)
@@ -408,31 +477,30 @@ if pay_ic_total[payment_categories].sum() > 0 or pay_vh_total[payment_categories
             st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
 
-# ─── Parcel ────────────────────────────────────────────────────────────────
-if 'df_parcel_ic' in globals() and 'df_parcel_vh' in globals():
-    if has_data(df_parcel_ic, "ทั้งหมด") or has_data(df_parcel_vh, "ทั้งหมด"):
-        st.subheader("📦 Parcel Summary")
-        cols = st.columns(2 if selected_project == "ทั้งหมด" else 1)
-        col1 = cols[0]
-        col2 = cols[1] if selected_project == "ทั้งหมด" else None
+# ─── Parcel ─────────────────────────────────────────────────────────────────
+if has_data(df_parcel_ic, "ทั้งหมด") or has_data(df_parcel_vh, "ทั้งหมด"):
+    st.subheader("📦 Parcel Summary")
+    cols = st.columns(2 if selected_project == "ทั้งหมด" else 1)
+    col1 = cols[0]
+    col2 = cols[1] if selected_project == "ทั้งหมด" else None
 
-        if selected_project in ["ทั้งหมด", "ICRHH"] and has_data(df_parcel_ic, "ทั้งหมด"):
-            with col1:
-                fig = px.bar(df_parcel_ic.melt(id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"),
-                             x="เดือน", y="จำนวน", color="สถานะ", barmode="group",
-                             title="ICRHH", text_auto=True)
-                st.plotly_chart(fig, use_container_width=True)
+    if selected_project in ["ทั้งหมด", "ICRHH"] and has_data(df_parcel_ic, "ทั้งหมด"):
+        with col1:
+            fig = px.bar(df_parcel_ic.melt(id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"),
+                         x="เดือน", y="จำนวน", color="สถานะ", barmode="group",
+                         title="ICRHH", text_auto=True)
+            st.plotly_chart(fig, use_container_width=True)
 
-        if selected_project in ["ทั้งหมด", "VEHHA"] and has_data(df_parcel_vh, "ทั้งหมด"):
-            target = col2 if selected_project == "ทั้งหมด" else col1
-            with target:
-                fig = px.bar(df_parcel_vh.melt(id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"),
-                             x="เดือน", y="จำนวน", color="สถานะ", barmode="group",
-                             title="VEHHA", text_auto=True)
-                st.plotly_chart(fig, use_container_width=True)
-        st.markdown("---")
+    if selected_project in ["ทั้งหมด", "VEHHA"] and has_data(df_parcel_vh, "ทั้งหมด"):
+        target = col2 if selected_project == "ทั้งหมด" else col1
+        with target:
+            fig = px.bar(df_parcel_vh.melt(id_vars="เดือน", var_name="สถานะ", value_name="จำนวน"),
+                         x="เดือน", y="จำนวน", color="สถานะ", barmode="group",
+                         title="VEHHA", text_auto=True)
+            st.plotly_chart(fig, use_container_width=True)
+    st.markdown("---")
 
-# ─── Home Service (ครบตามตารางล่าสุด) ────────────────────────────────────────
+# ─── Home Service ────────────────────────────────────────────────────────────
 if has_data(df_service_ic) or has_data(df_service_vh):
     st.subheader("🧹 บริการ Home Service")
 
@@ -456,38 +524,24 @@ if has_data(df_service_ic) or has_data(df_service_vh):
             fig_vh.update_layout(xaxis_title="เดือน", yaxis_title="จำนวนครั้ง")
             st.plotly_chart(fig_vh, use_container_width=True)
 
-    # ─── 5 อันดับ Home Service ───────────────────────────────────────────
+    # ─── 5 อันดับ Home Service (ตาราง) ──────────────────────────────────
     st.markdown("#### 🏆 5 อันดับบริการ Home Service ยอดนิยม (สะสม Jul–Oct)")
     cols_rank = st.columns(2 if selected_project == "ทั้งหมด" else 1)
 
     if selected_project in ["ทั้งหมด", "ICRHH"] and not service_ic_total.empty:
         with cols_rank[0]:
             st.markdown("**ICRHH**")
-            fig_ic_svc = px.bar(
-                service_ic_total.reset_index(), x="จำนวนครั้งรวม", y="บริการ",
-                orientation="h", text="จำนวนครั้งรวม",
-                color="จำนวนครั้งรวม", color_continuous_scale="Purples"
-            )
-            fig_ic_svc.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False, coloraxis_showscale=False)
-            fig_ic_svc.update_traces(textposition="outside")
-            st.plotly_chart(fig_ic_svc, use_container_width=True)
+            st.dataframe(service_ic_total.reset_index(), use_container_width=True)
 
     if selected_project in ["ทั้งหมด", "VEHHA"] and not service_vh_total.empty:
         target = cols_rank[1] if selected_project == "ทั้งหมด" else cols_rank[0]
         with target:
             st.markdown("**VEHHA**")
-            fig_vh_svc = px.bar(
-                service_vh_total.reset_index(), x="จำนวนครั้งรวม", y="บริการ",
-                orientation="h", text="จำนวนครั้งรวม",
-                color="จำนวนครั้งรวม", color_continuous_scale="Teal"
-            )
-            fig_vh_svc.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False, coloraxis_showscale=False)
-            fig_vh_svc.update_traces(textposition="outside")
-            st.plotly_chart(fig_vh_svc, use_container_width=True)
+            st.dataframe(service_vh_total.reset_index(), use_container_width=True)
 
     st.markdown("---")
 
-# ─── Facility Booking ──────────────────────────────────────────────────────
+# ─── Facility Booking ───────────────────────────────────────────────────────
 if has_data(df_fac_ic) or has_data(df_fac_vh):
     st.subheader("🏊 การจองสิ่งอำนวยความสะดวก")
 
@@ -505,5 +559,5 @@ if has_data(df_fac_ic) or has_data(df_fac_vh):
 
     st.markdown("---")
 
-# ─── FOOTER ────────────────────────────────────────────────────────────────
-st.caption("Dashboard • Proud Living Summary 31_10_2025 V2 • Home Service ครบทุกบริการ")
+# ─── FOOTER ─────────────────────────────────────────────────────────────────
+st.caption("Dashboard • Proud Living Summary 31_10_2025 V2 • ")
